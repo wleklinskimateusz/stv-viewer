@@ -1,4 +1,4 @@
-import type { ParsedStvReport, Round } from './stvTypes';
+import type { ParsedStvReport, Round } from "./stvTypes";
 
 export type DroopSummary = {
   seats: number;
@@ -9,6 +9,10 @@ export type DroopSummary = {
   ballotPaperLines: number;
   /** Suma długości wszystkich odczytanych kart (liczba pozycji preferencji). */
   ballotPreferenceSlotsTotal: number;
+  /** Największa liczba pozycji preferencji na pojedynczej odczytanej karcie. */
+  maxPreferencesOnAnyBallot: number;
+  /** Liczba kart o długości równej tej maksymalnej („wypełnione do końca” wg najdłuższej karty w pliku). */
+  fullyFilledBallotLines: number;
   /** V użyte w wzorze na kwotę Droop. */
   votesBaseForQuota: number;
   votesBaseExplanation: string;
@@ -25,27 +29,17 @@ export function sumFirstRoundVotes(rounds: Round[]): number {
   return r.rows.reduce((sum, row) => sum + row.votes, 0);
 }
 
-/**
- * Kwota Droop jako **V / (S + 1)** — typowy próg przy przeliczeniach ułamkowych (np. silniki STV).
- *
- * Odrębnie w wielu regulaminach z głosami **całkowitymi** używa się najmniejszej liczby całkowitej
- * ściśle większej od V/(S+1), czyli **⌊V/(S+1)⌋ + 1** — to nie to samo co poniżej, gdy V/(S+1) nie jest całkowite.
- */
-export function droopQuotaRational(validVotes: number, seats: number): number {
+export function calculateDroopQuota(validVotes: number, seats: number): number {
   if (seats <= 0 || validVotes <= 0) return 0;
-  return validVotes / (seats + 1);
+  return Math.floor(validVotes / (seats + 1) + 1);
 }
 
-/** Wariant całkowity (⌊V/(S+1)⌋ + 1), gdyby kiedyś potrzebować porównania. */
-export function droopQuotaIntegerInclusive(validVotes: number, seats: number): number {
-  if (seats <= 0 || validVotes <= 0) return 0;
-  return Math.floor(validVotes / (seats + 1)) + 1;
-}
-
-export function parseEligibleVoters(meta: ParsedStvReport['meta']): number | null {
-  const raw = meta['Osoby głosujące'];
-  if (raw == null || raw === '') return null;
-  const n = Number.parseInt(String(raw).replace(/\s/g, ''), 10);
+export function parseEligibleVoters(
+  meta: ParsedStvReport["meta"],
+): number | null {
+  const raw = meta["Osoby głosujące"];
+  if (raw == null || raw === "") return null;
+  const n = Number.parseInt(String(raw).replace(/\s/g, ""), 10);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -55,7 +49,18 @@ export function computeDroopSummary(data: ParsedStvReport): DroopSummary {
   const firstRoundVoteTotal = sumFirstRoundVotes(data.rounds);
   const ballotPapers = data.ballotPapers;
   const ballotPaperLines = ballotPapers.length;
-  const ballotPreferenceSlotsTotal = ballotPapers.reduce((acc, p) => acc + p.length, 0);
+  const ballotPreferenceSlotsTotal = ballotPapers.reduce(
+    (acc, p) => acc + p.length,
+    0,
+  );
+  let maxPreferencesOnAnyBallot = 0;
+  for (const p of ballotPapers) {
+    if (p.length > maxPreferencesOnAnyBallot) maxPreferencesOnAnyBallot = p.length;
+  }
+  const fullyFilledBallotLines =
+    maxPreferencesOnAnyBallot > 0
+      ? ballotPapers.filter((p) => p.length === maxPreferencesOnAnyBallot).length
+      : 0;
 
   let votesBaseForQuota: number;
   let votesBaseExplanation: string;
@@ -67,14 +72,15 @@ export function computeDroopSummary(data: ParsedStvReport): DroopSummary {
     votesBaseForQuota = firstRoundVoteTotal;
     votesBaseExplanation =
       ballotPaperLines === 1
-        ? 'Jedna linia w „Kartach…” traktowana jako przykładowa karta; V do kwoty Droop wzięte z sumy głosów w pierwszej rundzie tabeli (zwykle liczba ważnych kart w przeliczeniu).'
-        : 'Brak sekcji „Karty do głosowania”; V z sumy głosów w pierwszej rundzie tabeli.';
+        ? "Jedna linia w „Kartach…” traktowana jako przykładowa karta; V do kwoty Droop wzięte z sumy głosów w pierwszej rundzie tabeli (zwykle liczba ważnych kart w przeliczeniu)."
+        : "Brak sekcji „Karty do głosowania”; V z sumy głosów w pierwszej rundzie tabeli.";
   } else {
     votesBaseForQuota = 0;
-    votesBaseExplanation = 'Brak danych do policzenia V (pusta pierwsza runda lub brak tabeli).';
+    votesBaseExplanation =
+      "Brak danych do policzenia V (pusta pierwsza runda lub brak tabeli).";
   }
 
-  const droopQuota = droopQuotaRational(votesBaseForQuota, seats);
+  const droopQuota = calculateDroopQuota(votesBaseForQuota, seats);
   const turnout =
     eligibleVoters != null && eligibleVoters > 0 && votesBaseForQuota >= 0
       ? votesBaseForQuota / eligibleVoters
@@ -86,6 +92,8 @@ export function computeDroopSummary(data: ParsedStvReport): DroopSummary {
     firstRoundVoteTotal,
     ballotPaperLines,
     ballotPreferenceSlotsTotal,
+    maxPreferencesOnAnyBallot,
+    fullyFilledBallotLines,
     votesBaseForQuota,
     votesBaseExplanation,
     droopQuota,

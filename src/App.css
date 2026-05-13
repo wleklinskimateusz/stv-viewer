@@ -239,6 +239,12 @@ body {
   font-size: 1.15rem;
 }
 
+.election-stat-sub {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .election-stats-formula,
 .election-stats-note {
   margin: 0.75rem 0 0;

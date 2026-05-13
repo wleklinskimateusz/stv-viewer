@@ -100,10 +100,28 @@ function ElectionStatsBanner({ data }: { data: ParsedStvReport }) {
           <dt>Frekwencja (V względem uprawnionych)</dt>
           <dd>{turnoutStr}</dd>
         </div>
+
+        <div className="election-stat">
+          <dt>Jak dużo osób wypełniło karty do końca?</dt>
+          <dd>
+            {s.maxPreferencesOnAnyBallot > 0 ? (
+              <>
+                {formatVotes(s.fullyFilledBallotLines)}
+                <span className="election-stat-sub">
+                  {" "}
+                  (pełna karta = {formatVotes(s.maxPreferencesOnAnyBallot)} poz. —
+                  tyle co najdłuższa z odczytanych)
+                </span>
+              </>
+            ) : (
+              "—"
+            )}
+          </dd>
+        </div>
       </dl>
       <p className="election-stats-formula">
-        Wzór: kwota = V / (S + 1), gdzie S = liczba miejsc, V = liczba ważnych
-        głosów przyjęta według zasad powyżej (próg ułamkowy jak w typowym STV).
+        Wzór: kwota = ⌊V / (S + 1) + 1⌋, gdzie S = liczba miejsc, V = liczba
+        ważnych głosów.
       </p>
       <p className="election-stats-note">{s.votesBaseExplanation}</p>
     </section>
