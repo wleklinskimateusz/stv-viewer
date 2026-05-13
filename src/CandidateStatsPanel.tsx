@@ -148,8 +148,6 @@ export function CandidateStatsPanel({
       <p className="lead candidate-stats-lead">
         Zliczenia z sekcji <strong>„Karty do głosowania”</strong>: na którym
         miejscu preferencji dana osoba pojawia się na poszczególnych kartach.
-        Kolumna <em>Runda 1 (tabela)</em> to pierwsza runda z raportu — do
-        porównania, gdy w eksporcie jest tylko część kart.
       </p>
       <p className="candidate-stats-meta">
         Linii kart w pliku: <strong>{papers.length}</strong>
