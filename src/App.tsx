@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import {
   actionLabel,
@@ -10,26 +10,35 @@ import { formatVotes } from "./formatVotes";
 import { groupClass } from "./groupStyles";
 import { TransfersPanel } from "./TransfersPanel";
 import { BallotsPanel } from "./BallotsPanel";
+import { allCandidateNamesForFactions } from "./candidateBallotStats";
+import {
+  CANDIDATE_FACTION_MAX,
+  clearCandidateFactionsStorage,
+  candidateFactionColor,
+  FACTION_NAME_MAX_LEN,
+  loadCandidateFactionsFromStorage,
+  pruneCandidateFactionAssignments,
+  pruneCandidateFactionNames,
+  saveCandidateFactionsToStorage,
+  type CandidateFactionsState,
+} from "./candidateFactions";
 import { CandidateStatsPanel } from "./CandidateStatsPanel";
+import { FactionRoundsPanel } from "./FactionRoundsPanel";
 import { computeDroopSummary } from "./stvQuota";
 
-type MainTab = "overview" | "transfers" | "ballots" | "candidates";
+type MainTab =
+  | "overview"
+  | "transfers"
+  | "ballots"
+  | "candidates"
+  | "factions";
 
-function applyRawReport(
-  raw: string,
-  setData: (d: ParsedStvReport | null) => void,
-  setError: (e: string | null) => void,
-): void {
-  const parsed = parseStvReport(raw);
-  const validationError = validateStvReportText(raw, parsed);
-  if (validationError) {
-    setError(validationError);
-    setData(null);
-    return;
-  }
-  setError(null);
-  setData(parsed);
-}
+const emptyCandidateFactions: CandidateFactionsState = {
+  groupCount: 0,
+  assignments: {},
+  rememberForFileName: false,
+  factionNames: {},
+};
 
 const META_LABEL_DISPLAY: Record<string, string> = {
   "Osoby głosujące": "Osoby uprawnione do głosowania",
@@ -109,8 +118,8 @@ function ElectionStatsBanner({ data }: { data: ParsedStvReport }) {
                 {formatVotes(s.fullyFilledBallotLines)}
                 <span className="election-stat-sub">
                   {" "}
-                  (pełna karta = {formatVotes(s.maxPreferencesOnAnyBallot)} poz. —
-                  tyle co najdłuższa z odczytanych)
+                  (pełna karta = {formatVotes(s.maxPreferencesOnAnyBallot)} poz.
+                  — tyle co najdłuższa z odczytanych)
                 </span>
               </>
             ) : (
@@ -128,15 +137,32 @@ function ElectionStatsBanner({ data }: { data: ParsedStvReport }) {
   );
 }
 
-function ElectedGrid({ elected }: { elected: ParsedStvReport["elected"] }) {
+function ElectedGrid({
+  elected,
+  factionColor,
+}: {
+  elected: ParsedStvReport["elected"];
+  factionColor: (name: string) => string | null;
+}) {
   return (
     <ul className="elected-grid">
-      {elected.map((p) => (
-        <li key={p.name} className="elected-card">
-          <span className={`group-pill ${groupClass(p.group)}`}>{p.group}</span>
-          <span className="elected-name">{p.name}</span>
-        </li>
-      ))}
+      {elected.map((p) => {
+        const fc = factionColor(p.name);
+        return (
+          <li key={p.name} className="elected-card">
+            {fc ? (
+              <span
+                className="faction-dot"
+                style={{ backgroundColor: fc }}
+                title="Frakcja (ustawienia użytkownika)"
+                aria-hidden
+              />
+            ) : null}
+            <span className={`group-pill ${groupClass(p.group)}`}>{p.group}</span>
+            <span className="elected-name">{p.name}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -155,7 +181,13 @@ function roundSummary(round: Round): {
   return { elected, eliminated };
 }
 
-function RoundCard({ round }: { round: Round }) {
+function RoundCard({
+  round,
+  factionColor,
+}: {
+  round: Round;
+  factionColor: (name: string) => string | null;
+}) {
   const maxVotes = Math.max(...round.rows.map((r) => r.votes), 1);
   const { elected, eliminated } = roundSummary(round);
   const tieCount = round.rows.filter((r) => r.tie).length;
@@ -190,6 +222,7 @@ function RoundCard({ round }: { round: Round }) {
           .map((row) => {
             const kind = actionLabel(row.action);
             const pct = (row.votes / maxVotes) * 100;
+            const fc = factionColor(row.candidate);
             return (
               <div
                 key={row.candidate}
@@ -199,6 +232,14 @@ function RoundCard({ round }: { round: Round }) {
                   <div className="row-bar" style={{ width: `${pct}%` }} />
                 </div>
                 <div className="row-main">
+                  {fc ? (
+                    <span
+                      className="faction-dot faction-dot-row"
+                      style={{ backgroundColor: fc }}
+                      title="Frakcja (ustawienia użytkownika)"
+                      aria-hidden
+                    />
+                  ) : null}
                   <span className="row-name">{row.candidate}</span>
                   <span className="row-meta">
                     {row.tie && <span className="pill pill-tie">remis</span>}
@@ -227,6 +268,146 @@ export default function App() {
   const [sourceLabel, setSourceLabel] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>("overview");
+  const [candidateFactions, setCandidateFactions] =
+    useState<CandidateFactionsState>(emptyCandidateFactions);
+
+  const candidateNameSet = useMemo(() => {
+    if (!data) return new Set<string>();
+    return allCandidateNamesForFactions(
+      data.ballotPapers,
+      data.rounds,
+      data.elected,
+    );
+  }, [data]);
+
+  const factionColorForCandidate = useCallback(
+    (name: string): string | null => {
+      const g = candidateFactions.assignments[name];
+      if (
+        candidateFactions.groupCount < 1 ||
+        g == null ||
+        g < 1 ||
+        g > candidateFactions.groupCount
+      ) {
+        return null;
+      }
+      return candidateFactionColor(g);
+    },
+    [candidateFactions],
+  );
+
+  useEffect(() => {
+    if (
+      !sourceLabel.trim() ||
+      !data ||
+      candidateNameSet.size === 0 ||
+      !candidateFactions.rememberForFileName ||
+      candidateFactions.groupCount < 1
+    ) {
+      return;
+    }
+    saveCandidateFactionsToStorage(sourceLabel, candidateNameSet, {
+      groupCount: candidateFactions.groupCount,
+      assignments: candidateFactions.assignments,
+      factionNames: candidateFactions.factionNames,
+    });
+  }, [
+    sourceLabel,
+    data,
+    candidateNameSet,
+    candidateFactions.rememberForFileName,
+    candidateFactions.groupCount,
+    candidateFactions.assignments,
+    candidateFactions.factionNames,
+  ]);
+
+  const onCandidateFactionGroupCountChange = useCallback(
+    (raw: number) => {
+      const gc = Math.min(
+        CANDIDATE_FACTION_MAX,
+        Math.max(0, Math.floor(Number(raw)) || 0),
+      );
+      setCandidateFactions((prev) => {
+        if (gc === 0) {
+          if (prev.rememberForFileName && sourceLabel.trim()) {
+            clearCandidateFactionsStorage(sourceLabel);
+          }
+          return {
+            groupCount: 0,
+            assignments: {},
+            rememberForFileName: false,
+            factionNames: {},
+          };
+        }
+        return {
+          ...prev,
+          groupCount: gc,
+          assignments: pruneCandidateFactionAssignments(prev.assignments, gc),
+          factionNames: pruneCandidateFactionNames(prev.factionNames, gc),
+        };
+      });
+    },
+    [sourceLabel],
+  );
+
+  const onCandidateFactionAssign = useCallback(
+    (candidateName: string, groupId: number) => {
+      setCandidateFactions((prev) => {
+        const next = { ...prev.assignments };
+        if (groupId < 1) delete next[candidateName];
+        else next[candidateName] = groupId;
+        return { ...prev, assignments: next };
+      });
+    },
+    [],
+  );
+
+  const onCandidateFactionRememberChange = useCallback(
+    (v: boolean) => {
+      setCandidateFactions((prev) => {
+        if (!v && sourceLabel.trim()) clearCandidateFactionsStorage(sourceLabel);
+        return { ...prev, rememberForFileName: v };
+      });
+    },
+    [sourceLabel],
+  );
+
+  const onCandidateFactionClearBrowserStorage = useCallback(() => {
+    if (sourceLabel.trim()) clearCandidateFactionsStorage(sourceLabel);
+    setCandidateFactions((prev) => ({ ...prev, rememberForFileName: false }));
+  }, [sourceLabel]);
+
+  const onCandidateFactionClearAssignments = useCallback(() => {
+    setCandidateFactions((prev) => ({ ...prev, assignments: {} }));
+  }, []);
+
+  const onCandidateFactionNameChange = useCallback(
+    (groupId: number, label: string) => {
+      setCandidateFactions((prev) => {
+        const next = { ...prev.factionNames };
+        const t = label.trim().slice(0, FACTION_NAME_MAX_LEN);
+        if (!t) delete next[groupId];
+        else next[groupId] = t;
+        return { ...prev, factionNames: next };
+      });
+    },
+    [],
+  );
+
+  const showFactionsTab = useMemo(
+    () =>
+      candidateFactions.groupCount >= 1 &&
+      Object.keys(candidateFactions.assignments).length > 0,
+    [candidateFactions.groupCount, candidateFactions.assignments],
+  );
+
+  useEffect(() => {
+    if (!showFactionsTab && mainTab === "factions") {
+      queueMicrotask(() => {
+        setMainTab("candidates");
+      });
+    }
+  }, [showFactionsTab, mainTab]);
 
   const consumeFile = (file: File) => {
     setLoading(true);
@@ -234,13 +415,41 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       const raw = String(reader.result ?? "");
-      applyRawReport(raw, setData, setError);
+      const parsed = parseStvReport(raw);
+      const validationError = validateStvReportText(raw, parsed);
       setSourceLabel(file.name);
+      if (validationError) {
+        setError(validationError);
+        setData(null);
+        setCandidateFactions(emptyCandidateFactions);
+        setLoading(false);
+        return;
+      }
+      setError(null);
+      setData(parsed);
+      const validNames = allCandidateNamesForFactions(
+        parsed.ballotPapers,
+        parsed.rounds,
+        parsed.elected,
+      );
+      const loaded =
+        validNames.size > 0
+          ? loadCandidateFactionsFromStorage(file.name, validNames)
+          : null;
+      setCandidateFactions(
+        loaded ?? {
+          groupCount: 0,
+          assignments: {},
+          rememberForFileName: false,
+          factionNames: {},
+        },
+      );
       setLoading(false);
     };
     reader.onerror = () => {
       setError("Nie udało się odczytać pliku z dysku.");
       setData(null);
+      setCandidateFactions(emptyCandidateFactions);
       setLoading(false);
     };
     reader.readAsText(file, "UTF-8");
@@ -391,6 +600,18 @@ export default function App() {
             >
               Kandydatki
             </button>
+            {showFactionsTab && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mainTab === "factions"}
+                className={`app-tab ${mainTab === "factions" ? "app-tab-active" : ""}`}
+                onClick={() => setMainTab("factions")}
+                aria-label="Podsumowanie głosów i szacunek przepływów według frakcji"
+              >
+                Frakcje
+              </button>
+            )}
           </nav>
 
           {mainTab === "overview" && (
@@ -406,7 +627,10 @@ export default function App() {
                   Osoby, które znalazły się w sekcji wyboru w raporcie — z
                   oznaczeniem parytetu (M / K / X).
                 </p>
-                <ElectedGrid elected={data.elected} />
+                <ElectedGrid
+                  elected={data.elected}
+                  factionColor={factionColorForCandidate}
+                />
               </section>
 
               <section className="section rounds">
@@ -428,7 +652,11 @@ export default function App() {
                     .slice()
                     .sort((a, b) => a.number - b.number)
                     .map((r, idx) => (
-                      <RoundCard key={`${r.number}-${idx}`} round={r} />
+                      <RoundCard
+                        key={`${r.number}-${idx}`}
+                        round={r}
+                        factionColor={factionColorForCandidate}
+                      />
                     ))}
                 </div>
               </section>
@@ -437,13 +665,34 @@ export default function App() {
 
           {mainTab === "transfers" && <TransfersPanel rounds={data.rounds} />}
 
-          {mainTab === "ballots" && <BallotsPanel papers={data.ballotPapers} />}
+          {mainTab === "ballots" && (
+            <BallotsPanel
+              papers={data.ballotPapers}
+              factionColor={factionColorForCandidate}
+            />
+          )}
 
           {mainTab === "candidates" && (
             <CandidateStatsPanel
               papers={data.ballotPapers}
               rounds={data.rounds}
               elected={data.elected}
+              sourceLabel={sourceLabel}
+              factions={candidateFactions}
+              onFactionGroupCountChange={onCandidateFactionGroupCountChange}
+              onFactionAssign={onCandidateFactionAssign}
+              onFactionRememberChange={onCandidateFactionRememberChange}
+              onFactionClearBrowserStorage={onCandidateFactionClearBrowserStorage}
+              onFactionClearAssignments={onCandidateFactionClearAssignments}
+              onFactionNameChange={onCandidateFactionNameChange}
+            />
+          )}
+
+          {mainTab === "factions" && showFactionsTab && (
+            <FactionRoundsPanel
+              rounds={data.rounds}
+              papers={data.ballotPapers}
+              factions={candidateFactions}
             />
           )}
         </>
@@ -451,9 +700,20 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          <strong>Polityka prywatności:</strong> aplikacja nie wysyła danych na
-          żaden serwer zewnętrzny — wczytany plik jest analizowany wyłącznie
-          lokalnie w przeglądarce.
+          <strong>Polityka prywatności:</strong> aplikacja nie przesyła
+          wczytanego pliku na żaden zewnętrzny serwer — analiza odbywa się
+          wyłącznie lokalnie w Twojej przeglądarce.
+        </p>
+        <p>
+          Jeśli zaznaczysz „Zapamiętaj przypisania i nazwy”, program zapisze w
+          pamięci przeglądarki (<strong>localStorage</strong>, zgodnie z
+          praktyką opisaną w wytycznych dotyczących plików cookie i podobnych
+          technologii) Twoje przypisania kandydatek do frakcji, nazwy frakcji
+          oraz identyfikator w postaci <strong>nazwy pliku</strong> raportu, by
+          móc je przywrócić przy ponownym otwarciu tej samej nazwy pliku.
+          Przetwarzanie odbywa się na Twoim urządzeniu; możesz w każdej chwili
+          usunąć te dane przyciskiem „Usuń zapis w przeglądarce” w zakładce
+          Kandydatki albo wyczyścić dane witryny w ustawieniach przeglądarki.
         </p>
         {data && (
           <p>

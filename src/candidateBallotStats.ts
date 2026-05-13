@@ -155,3 +155,13 @@ export function buildCandidateStatsRows(
 
   return rows;
 }
+
+/** Zbiór nazw kandydatek do walidacji zapisanych frakcji (pierwsza runda + karty + wybrane). */
+export function allCandidateNamesForFactions(
+  papers: BallotEntry[][],
+  rounds: Round[],
+  elected?: ElectedPerson[],
+): Set<string> {
+  const rows = buildCandidateStatsRows(papers, rounds, elected);
+  return new Set(rows.map((r) => r.name));
+}

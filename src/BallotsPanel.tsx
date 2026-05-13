@@ -4,44 +4,64 @@ import { groupClass } from "./groupStyles";
 
 type BallotsPanelProps = {
   papers: BallotEntry[][];
+  factionColor: (candidateName: string) => string | null;
 };
 
-function BallotPaperVisual({ entries }: { entries: BallotEntry[] }) {
+function BallotPaperVisual({
+  entries,
+  factionColor,
+}: {
+  entries: BallotEntry[];
+  factionColor: (name: string) => string | null;
+}) {
   return (
     <div
       className="ballot-paper"
       role="list"
       aria-label="Kolejność preferencji"
     >
-      {entries.map((b, idx) => (
-        <div key={`${b.name}-${idx}`} className="ballot-step" role="listitem">
-          <div className="ballot-step-track" aria-hidden>
-            <span className="ballot-step-dot" />
-            <span className="ballot-step-line" />
-          </div>
-          <div className="ballot-step-body">
-            <div className="ballot-step-meta">
-              <span className="ballot-step-rank">{idx + 1}</span>
+      {entries.map((b, idx) => {
+        const fc = factionColor(b.name);
+        return (
+          <div key={`${b.name}-${idx}`} className="ballot-step" role="listitem">
+            <div className="ballot-step-track" aria-hidden>
+              <span className="ballot-step-dot" />
+              <span className="ballot-step-line" />
             </div>
-            <div className="ballot-step-card">
-              <span className="ballot-step-name">{b.name}</span>
-              <span className={`group-pill ${groupClass(b.group)}`}>
-                {b.group}
-              </span>
+            <div className="ballot-step-body">
+              <div className="ballot-step-meta">
+                <span className="ballot-step-rank">{idx + 1}</span>
+              </div>
+              <div
+                className="ballot-step-card"
+                style={
+                  fc
+                    ? {
+                        borderLeftWidth: 4,
+                        borderLeftStyle: "solid",
+                        borderLeftColor: fc,
+                      }
+                    : undefined
+                }
+              >
+                <span className="ballot-step-name">{b.name}</span>
+                <span className={`group-pill ${groupClass(b.group)}`}>
+                  {b.group}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-export function BallotsPanel({ papers }: BallotsPanelProps) {
+export function BallotsPanel({ papers, factionColor }: BallotsPanelProps) {
   const [index, setIndex] = useState(0);
   const n = papers.length;
 
-  const safeIndex =
-    n === 0 ? 0 : Math.min(Math.max(0, index), n - 1);
+  const safeIndex = n === 0 ? 0 : Math.min(Math.max(0, index), n - 1);
 
   const go = useCallback(
     (delta: number) => {
@@ -93,6 +113,8 @@ export function BallotsPanel({ papers }: BallotsPanelProps) {
         Każda linia z eksportu to jedna odczytana karta — preferencje od
         najwyższej do najniższej. Kliknij w kartę poniżej, potem użyj strzałek{" "}
         <kbd className="kbd-hint">←</kbd> <kbd className="kbd-hint">→</kbd>.
+        Kolory przy nazwiskach pochodzą z frakcji ustawionych w zakładce{" "}
+        <strong>Kandydatki</strong>.
       </p>
 
       <div className="ballot-nav" role="group" aria-label="Wybór karty">
@@ -150,7 +172,7 @@ export function BallotsPanel({ papers }: BallotsPanelProps) {
         onKeyDown={onKeyNav}
         aria-label="Podgląd karty — strzałki zmieniają kartę"
       >
-        <BallotPaperVisual entries={current} />
+        <BallotPaperVisual entries={current} factionColor={factionColor} />
       </div>
     </section>
   );

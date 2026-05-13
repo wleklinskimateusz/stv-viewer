@@ -5,6 +5,13 @@ import {
   maxBallotDepth,
   type CandidateStatsRow,
 } from "./candidateBallotStats";
+import {
+  CANDIDATE_FACTION_MAX,
+  candidateFactionColor,
+  displayFactionName,
+  FACTION_NAME_MAX_LEN,
+  type CandidateFactionsState,
+} from "./candidateFactions";
 import { groupClass } from "./groupStyles";
 
 const nfRank = new Intl.NumberFormat("pl-PL", {
@@ -61,10 +68,26 @@ export function CandidateStatsPanel({
   papers,
   rounds,
   elected,
+  sourceLabel,
+  factions,
+  onFactionGroupCountChange,
+  onFactionAssign,
+  onFactionRememberChange,
+  onFactionClearBrowserStorage,
+  onFactionClearAssignments,
+  onFactionNameChange,
 }: {
   papers: BallotEntry[][];
   rounds: Round[];
   elected: ElectedPerson[];
+  sourceLabel: string;
+  factions: CandidateFactionsState;
+  onFactionGroupCountChange: (n: number) => void;
+  onFactionAssign: (candidateName: string, groupId: number) => void;
+  onFactionRememberChange: (v: boolean) => void;
+  onFactionClearBrowserStorage: () => void;
+  onFactionClearAssignments: () => void;
+  onFactionNameChange: (groupId: number, label: string) => void;
 }) {
   const rows = useMemo(
     () => buildCandidateStatsRows(papers, rounds, elected),
@@ -74,6 +97,8 @@ export function CandidateStatsPanel({
   const [sortKey, setSortKey] = useState<SortKey>("first");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<string | null>(null);
+
+  const gc = factions.groupCount;
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -139,6 +164,50 @@ export function CandidateStatsPanel({
     </th>
   );
 
+  const factionSelect = (name: string) => {
+    const current = factions.assignments[name];
+    const val =
+      current != null &&
+      current >= 1 &&
+      current <= gc
+        ? String(current)
+        : "";
+    return (
+      <select
+        className="candidate-faction-select"
+        aria-label={`Frakcja: ${name}`}
+        disabled={gc < 1}
+        value={val}
+        onChange={(e) => {
+          const raw = e.target.value;
+          onFactionAssign(name, raw === "" ? 0 : Number.parseInt(raw, 10));
+        }}
+      >
+        <option value="">—</option>
+        {Array.from({ length: gc }, (_, j) => j + 1).map((id) => (
+          <option key={id} value={id}>
+            {displayFactionName(id, factions.factionNames, gc)}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
+  const factionSwatch = (name: string) => {
+    const g = factions.assignments[name];
+    if (gc < 1 || g == null || g < 1 || g > gc) return null;
+    const c = candidateFactionColor(g);
+    const title = displayFactionName(g, factions.factionNames, gc);
+    return (
+      <span
+        className="faction-dot faction-dot-table"
+        style={{ backgroundColor: c }}
+        title={title}
+        aria-hidden
+      />
+    );
+  };
+
   return (
     <section
       className="section candidate-stats-section"
@@ -149,6 +218,115 @@ export function CandidateStatsPanel({
         Zliczenia z sekcji <strong>„Karty do głosowania”</strong>: na którym
         miejscu preferencji dana osoba pojawia się na poszczególnych kartach.
       </p>
+
+      <div className="candidate-faction-panel" aria-label="Opcjonalne frakcje">
+        <h3 className="candidate-faction-title">Frakcje (opcjonalnie)</h3>
+        <p className="candidate-faction-lead">
+          Przypisz każdą kandydatkę do co najwyżej jednej grupy (albo żadnej).
+          Możesz też nadać grupom <strong>własne nazwy</strong> (tylko w tej
+          aplikacji). To nie zmienia danych z pliku — tylko podświetlenia i
+          podsumowania. Domyślnie ustawienia są tylko w tej sesji; możesz
+          zapisać je lokalnie w przeglądarce (<strong>localStorage</strong>)
+          pod{" "}
+          <strong>tą samą nazwą pliku</strong>{" "}
+          {sourceLabel ? (
+            <>
+              (<code className="inline-code">{sourceLabel}</code>)
+            </>
+          ) : null}
+          .
+        </p>
+        <div className="candidate-faction-controls">
+          <label className="candidate-faction-field">
+            <span className="candidate-faction-field-label">Liczba grup</span>
+            <input
+              type="number"
+              className="candidate-faction-input"
+              min={0}
+              max={CANDIDATE_FACTION_MAX}
+              value={gc}
+              onChange={(e) =>
+                onFactionGroupCountChange(
+                  Number.parseInt(e.target.value, 10) || 0,
+                )
+              }
+            />
+            <span className="candidate-faction-field-hint">
+              0 = wyłączone, max. {CANDIDATE_FACTION_MAX}
+            </span>
+          </label>
+          <label className="candidate-faction-check">
+            <input
+              type="checkbox"
+              checked={factions.rememberForFileName}
+              disabled={gc < 1}
+              onChange={(e) => onFactionRememberChange(e.target.checked)}
+            />
+            <span>Zapamiętaj przypisania i nazwy (localStorage)</span>
+          </label>
+        </div>
+        {gc > 0 && (
+          <div className="candidate-faction-names" aria-label="Nazwy grup">
+            <span className="candidate-faction-names-title">Nazwy frakcji</span>
+            <div className="candidate-faction-names-grid">
+              {Array.from({ length: gc }, (_, j) => j + 1).map((id) => (
+                <label key={id} className="candidate-faction-name-field">
+                  <span className="candidate-faction-name-label">
+                    <span
+                      className="candidate-faction-swatch"
+                      style={{
+                        backgroundColor: candidateFactionColor(id),
+                      }}
+                      aria-hidden
+                    />
+                    Grupa {id}
+                  </span>
+                  <input
+                    type="text"
+                    className="candidate-faction-name-input"
+                    maxLength={FACTION_NAME_MAX_LEN}
+                    placeholder={`np. „Sekcja ${id}”`}
+                    value={factions.factionNames[id] ?? ""}
+                    onChange={(e) => onFactionNameChange(id, e.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        {gc > 0 && (
+          <div className="candidate-faction-legend" aria-hidden>
+            {Array.from({ length: gc }, (_, j) => j + 1).map((id) => (
+              <span key={id} className="candidate-faction-legend-item">
+                <span
+                  className="candidate-faction-swatch"
+                  style={{ backgroundColor: candidateFactionColor(id) }}
+                />
+                {displayFactionName(id, factions.factionNames, gc)}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="candidate-faction-actions">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={Object.keys(factions.assignments).length === 0}
+            onClick={() => onFactionClearAssignments()}
+          >
+            Wyczyść przypisania
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => onFactionClearBrowserStorage()}
+          >
+            Usuń zapis w przeglądarce dla tej nazwy pliku
+          </button>
+        </div>
+      </div>
+
       <p className="candidate-stats-meta">
         Linii kart w pliku: <strong>{papers.length}</strong>
         {depth > 0 ? (
@@ -170,10 +348,20 @@ export function CandidateStatsPanel({
             <table className="delta-table candidate-stats-table">
               <thead>
                 <tr>
+                  {gc > 0 ? (
+                    <th scope="col" className="candidate-faction-col">
+                      Fr.
+                    </th>
+                  ) : null}
                   {th("name", "Kandydat")}
                   {th("first", "1. miejsce (karty)")}
                   {th("ballots", "Karty łącznie")}
                   {th("mean", "Śr. miejsce")}
+                  {gc > 0 ? (
+                    <th scope="col" className="candidate-faction-assign-col">
+                      Frakcja
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -182,6 +370,11 @@ export function CandidateStatsPanel({
                     key={r.name}
                     className={activeRow?.name === r.name ? "row-selected" : ""}
                   >
+                    {gc > 0 ? (
+                      <td className="candidate-faction-col">
+                        {factionSwatch(r.name)}
+                      </td>
+                    ) : null}
                     <td>
                       <button
                         type="button"
@@ -201,6 +394,11 @@ export function CandidateStatsPanel({
                     <td className="num">
                       {r.ballotCount > 0 ? nfRank.format(r.meanRank) : "—"}
                     </td>
+                    {gc > 0 ? (
+                      <td className="candidate-faction-assign-col">
+                        {factionSelect(r.name)}
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -217,6 +415,12 @@ export function CandidateStatsPanel({
                   {activeRow.group}
                 </span>
               </h3>
+              {gc > 0 ? (
+                <p className="candidate-detail-faction-row">
+                  <span className="candidate-detail-faction-label">Frakcja</span>
+                  {factionSelect(activeRow.name)}
+                </p>
+              ) : null}
               <dl className="candidate-detail-dl">
                 <div>
                   <dt>Udział 1. preferencji na kartach</dt>

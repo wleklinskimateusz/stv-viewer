@@ -129,6 +129,12 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.btn-sm {
+  padding: 0.28rem 0.55rem;
+  font-size: 0.82rem;
+  min-width: unset;
+}
+
 .upload-status {
   margin: 0.65rem 0 0;
   font-size: 0.88rem;
@@ -530,6 +536,23 @@ body {
   border-radius: 12px;
 }
 
+.faction-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.faction-dot-row {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+.faction-dot-table {
+  display: block;
+  margin-inline: auto;
+}
+
 .elected-name {
   font-size: 0.92rem;
   font-weight: 500;
@@ -891,6 +914,7 @@ body {
 }
 
 .ballot-step-card {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   flex-grow: 1;
@@ -907,6 +931,194 @@ body {
   font-size: 0.92rem;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.candidate-faction-panel {
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.candidate-faction-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.candidate-faction-lead {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.candidate-faction-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.candidate-faction-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.candidate-faction-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.candidate-faction-input {
+  width: 4.5rem;
+  font: inherit;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.candidate-faction-field-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.candidate-faction-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  max-width: 28rem;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.candidate-faction-check input {
+  margin-top: 0.15rem;
+}
+
+.candidate-faction-names {
+  margin-bottom: 0.85rem;
+}
+
+.candidate-faction-names-title {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.candidate-faction-names-grid {
+  display: grid;
+  gap: 0.5rem 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+}
+
+.candidate-faction-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.candidate-faction-name-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.candidate-faction-name-input {
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.candidate-faction-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.candidate-faction-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.candidate-faction-swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.candidate-faction-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.candidate-faction-col {
+  width: 2rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.candidate-faction-assign-col {
+  min-width: 7.5rem;
+}
+
+.candidate-faction-select {
+  font: inherit;
+  font-size: 0.82rem;
+  max-width: 9rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.inline-code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.84em;
+  padding: 0.06rem 0.28rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  word-break: break-all;
+}
+
+.candidate-detail-faction-row {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.candidate-detail-faction-label {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .candidate-stats-section .candidate-stats-lead {
@@ -1094,6 +1306,156 @@ body {
 
 .footer p + p {
   margin-top: 0.75rem;
+}
+
+.faction-rounds-section .faction-rounds-lead {
+  margin-bottom: 1rem;
+}
+
+.faction-rounds-subh {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.faction-rounds-h4 {
+  margin: 1rem 0 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.faction-rounds-note {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.faction-rounds-scroll {
+  margin-bottom: 1.25rem;
+}
+
+.faction-matrix-th {
+  white-space: nowrap;
+}
+
+.faction-matrix-th-swatch {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.faction-flow-block {
+  margin-bottom: 1.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.faction-flow-block-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.faction-flow-pair-label {
+  display: inline-block;
+  padding-left: 0.45rem;
+  border-left: 3px solid var(--muted);
+}
+
+.faction-ballot-step-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.faction-ballot-step-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.faction-ballot-step-select {
+  font: inherit;
+  min-width: 10rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.faction-heat-table .faction-heat-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.faction-heat-th-compact {
+  max-width: 7.5rem;
+  vertical-align: bottom;
+}
+
+.faction-heat-th-txt {
+  display: inline-block;
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.faction-ballot-bar-list {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  max-width: 32rem;
+}
+
+.faction-ballot-bar-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem 3.5rem;
+  gap: 0.45rem 0.65rem;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.faction-ballot-bar-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  min-width: 0;
+  font-size: 0.82rem;
+}
+
+.faction-ballot-bar-arrow {
+  color: var(--muted);
+}
+
+.faction-ballot-bar-track {
+  height: 0.45rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.faction-ballot-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(110, 231, 183, 0.5), #6ee7b7);
+}
+
+.faction-ballot-bar-count {
+  text-align: right;
+  font-size: 0.84rem;
 }
 
 @media (prefers-color-scheme: light) {
