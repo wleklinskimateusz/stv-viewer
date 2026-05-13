@@ -19,7 +19,9 @@ function ensureLen(arr: number[], len: number): void {
 }
 
 /** Głosy z pierwszej rundy tabeli (dla porównania z kartami). */
-export function firstRoundVotesByCandidate(rounds: Round[]): Map<string, number> {
+export function firstRoundVotesByCandidate(
+  rounds: Round[],
+): Map<string, number> {
   const sorted = [...rounds].sort((a, b) => a.number - b.number);
   if (sorted.length === 0) return new Map();
   const m = new Map<string, number>();
@@ -110,7 +112,7 @@ export type CandidateStatsRow = CandidateBallotAggregate & {
   round1TableVotes: number | null;
 };
 
-/** Łączy statystyki z kart z pierwszą rundą tabeli (kandydaci tylko w tabeli dostają puste karty). */
+/** Łączy statystyki z kart z pierwszą rundą tabeli (kandydatki tylko w tabeli dostają puste karty). */
 export function buildCandidateStatsRows(
   papers: BallotEntry[][],
   rounds: Round[],

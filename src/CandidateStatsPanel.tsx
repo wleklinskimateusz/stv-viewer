@@ -176,8 +176,6 @@ export function CandidateStatsPanel({
                   {th("first", "1. miejsce (karty)")}
                   {th("ballots", "Karty łącznie")}
                   {th("mean", "Śr. miejsce")}
-                  {th("best", "Najlepsze")}
-                  {th("worst", "Najgorsze")}
                 </tr>
               </thead>
               <tbody>
@@ -204,12 +202,6 @@ export function CandidateStatsPanel({
                     <td className="num">{r.ballotCount}</td>
                     <td className="num">
                       {r.ballotCount > 0 ? nfRank.format(r.meanRank) : "—"}
-                    </td>
-                    <td className="num">
-                      {r.ballotCount > 0 ? r.bestRank : "—"}
-                    </td>
-                    <td className="num">
-                      {r.ballotCount > 0 ? r.worstRank : "—"}
                     </td>
                   </tr>
                 ))}

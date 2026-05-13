@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { BallotEntry } from "./stvTypes";
 import { groupClass } from "./groupStyles";
 
@@ -8,33 +8,30 @@ type BallotsPanelProps = {
 
 function BallotPaperVisual({ entries }: { entries: BallotEntry[] }) {
   return (
-    <div className="ballot-paper" role="list" aria-label="Kolejność preferencji">
-      {entries.map((b, idx) => {
-        const isFirst = idx === 0;
-        const isLast = idx === entries.length - 1;
-        return (
-          <div key={`${b.name}-${idx}`} className="ballot-step" role="listitem">
-            <div className="ballot-step-track" aria-hidden>
-              <span
-                className={`ballot-step-dot ${isFirst ? "ballot-step-dot-first" : ""}`}
-              />
-              {!isLast && <span className="ballot-step-line" />}
+    <div
+      className="ballot-paper"
+      role="list"
+      aria-label="Kolejność preferencji"
+    >
+      {entries.map((b, idx) => (
+        <div key={`${b.name}-${idx}`} className="ballot-step" role="listitem">
+          <div className="ballot-step-track" aria-hidden>
+            <span className="ballot-step-dot" />
+            <span className="ballot-step-line" />
+          </div>
+          <div className="ballot-step-body">
+            <div className="ballot-step-meta">
+              <span className="ballot-step-rank">{idx + 1}</span>
             </div>
-            <div className="ballot-step-body">
-              <div className="ballot-step-meta">
-                <span className="ballot-step-rank">{idx + 1}</span>
-                {isFirst && (
-                  <span className="ballot-step-label">najwyższa preferencja</span>
-                )}
-              </div>
-              <div className="ballot-step-card">
-                <span className="ballot-step-name">{b.name}</span>
-                <span className={`group-pill ${groupClass(b.group)}`}>{b.group}</span>
-              </div>
+            <div className="ballot-step-card">
+              <span className="ballot-step-name">{b.name}</span>
+              <span className={`group-pill ${groupClass(b.group)}`}>
+                {b.group}
+              </span>
             </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }
@@ -43,12 +40,8 @@ export function BallotsPanel({ papers }: BallotsPanelProps) {
   const [index, setIndex] = useState(0);
   const n = papers.length;
 
-  useEffect(() => {
-    setIndex((i) => {
-      if (n === 0) return 0;
-      return Math.min(Math.max(0, i), n - 1);
-    });
-  }, [n]);
+  const safeIndex =
+    n === 0 ? 0 : Math.min(Math.max(0, index), n - 1);
 
   const go = useCallback(
     (delta: number) => {
@@ -76,7 +69,10 @@ export function BallotsPanel({ papers }: BallotsPanelProps) {
 
   if (n === 0) {
     return (
-      <section className="section ballots-tab" aria-labelledby="ballots-heading">
+      <section
+        className="section ballots-tab"
+        aria-labelledby="ballots-heading"
+      >
         <h2 id="ballots-heading">Karty do głosowania</h2>
         <p className="lead">
           W tym raporcie nie ma sekcji „Karty do głosowania” albo jest pusta —
@@ -86,9 +82,9 @@ export function BallotsPanel({ papers }: BallotsPanelProps) {
     );
   }
 
-  const current = papers[index] ?? [];
-  const canPrev = index > 0;
-  const canNext = index < n - 1;
+  const current = papers[safeIndex] ?? [];
+  const canPrev = safeIndex > 0;
+  const canNext = safeIndex < n - 1;
 
   return (
     <section className="section ballots-tab" aria-labelledby="ballots-heading">
@@ -116,10 +112,8 @@ export function BallotsPanel({ papers }: BallotsPanelProps) {
           <select
             id="ballot-select"
             className="ballot-nav-select"
-            value={index}
-            onChange={(e) =>
-              setIndex(Number.parseInt(e.target.value, 10))
-            }
+            value={safeIndex}
+            onChange={(e) => setIndex(Number.parseInt(e.target.value, 10))}
           >
             {papers.map((_, i) => (
               <option key={i} value={i}>
@@ -141,7 +135,7 @@ export function BallotsPanel({ papers }: BallotsPanelProps) {
       </div>
 
       <p className="ballot-nav-summary" aria-live="polite">
-        Karta <strong>{index + 1}</strong> z <strong>{n}</strong>
+        Karta <strong>{safeIndex + 1}</strong> z <strong>{n}</strong>
         {current.length > 0 ? (
           <>
             {" "}

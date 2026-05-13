@@ -1,4 +1,4 @@
-import type { Round } from './stvTypes';
+import type { Round } from "./stvTypes";
 
 export type VoteDelta = {
   candidate: string;
@@ -23,7 +23,7 @@ export type RoundTransitionModel = {
   totalOut: number;
   totalIn: number;
   omittedLinkMass: number;
-  /** Stacks for drawing (kandydaci tylko — bez salda). */
+  /** Stacks for drawing (kandydatki tylko — bez salda). */
   sourceNodes: { id: string; w: number }[];
   targetNodes: { id: string; w: number }[];
 };
@@ -34,11 +34,14 @@ function votesMap(round: Round): Map<string, number> {
   return m;
 }
 
-export function estimateTransition(from: Round, to: Round): RoundTransitionModel {
+export function estimateTransition(
+  from: Round,
+  to: Round,
+): RoundTransitionModel {
   const A = votesMap(from);
   const B = votesMap(to);
   const names = [...new Set([...A.keys(), ...B.keys()])].sort((a, b) =>
-    a.localeCompare(b, 'pl', { sensitivity: 'base' }),
+    a.localeCompare(b, "pl", { sensitivity: "base" }),
   );
 
   const deltas: VoteDelta[] = names.map((candidate) => {
@@ -115,7 +118,9 @@ export function estimateTransition(from: Round, to: Round): RoundTransitionModel
   };
 }
 
-export function buildConsecutiveTransitions(rounds: Round[]): RoundTransitionModel[] {
+export function buildConsecutiveTransitions(
+  rounds: Round[],
+): RoundTransitionModel[] {
   const sorted = [...rounds].sort((a, b) => a.number - b.number);
   const out: RoundTransitionModel[] = [];
   for (let i = 0; i < sorted.length - 1; i += 1) {

@@ -1,7 +1,32 @@
-import { useEffect, useId, useMemo, useState } from 'react';
-import type { Round } from './stvTypes';
-import { buildConsecutiveTransitions, type RoundTransitionModel } from './estimateTransfers';
-import { formatVotes } from './formatVotes';
+import { useCallback, useId, useMemo, useState } from "react";
+import type { Round } from "./stvTypes";
+import { actionLabel } from "./parseStvReport";
+import {
+  buildConsecutiveTransitions,
+  type RoundTransitionModel,
+} from "./estimateTransfers";
+import { formatVotes } from "./formatVotes";
+
+/** Nagłówek diagramu: z kolumny „akcja” rundy źródłowej. */
+function flowDiagramCaption(
+  fromRound: Round | undefined,
+  fromN: number,
+  toN: number,
+): string {
+  if (!fromRound) return `Runda ${fromN} → Runda ${toN}`;
+  const elected: string[] = [];
+  const eliminated: string[] = [];
+  for (const row of fromRound.rows) {
+    const kind = actionLabel(row.action);
+    if (kind === "elected") elected.push(row.candidate);
+    else if (kind === "eliminated") eliminated.push(row.candidate);
+  }
+  const parts: string[] = [];
+  if (elected.length) parts.push(`wybrano ${elected.join(", ")}`);
+  if (eliminated.length) parts.push(`wyeliminowano ${eliminated.join(", ")}`);
+  if (parts.length) return parts.join(" · ");
+  return `Runda ${fromN} → Runda ${toN}`;
+}
 
 function hashHue(s: string): number {
   let h = 0;
@@ -9,8 +34,14 @@ function hashHue(s: string): number {
   return h % 360;
 }
 
-function FlowDiagram({ model }: { model: RoundTransitionModel }) {
-  const gradId = `fg-${useId().replace(/:/g, '')}`;
+function FlowDiagram({
+  model,
+  flowCaption,
+}: {
+  model: RoundTransitionModel;
+  flowCaption: string;
+}) {
+  const gradId = `fg-${useId().replace(/:/g, "")}`;
   const W = 900;
   const H = 520;
   const padT = 28;
@@ -48,11 +79,18 @@ function FlowDiagram({ model }: { model: RoundTransitionModel }) {
   }, [model.targetNodes, G, bodyH, padT]);
 
   if (model.links.length === 0) {
-    return <p className="transfers-empty">Brak wykrywalnych przepływów między tymi rundami.</p>;
+    return (
+      <p className="transfers-empty">
+        Brak wykrywalnych przepływów między tymi rundami.
+      </p>
+    );
   }
 
   return (
     <div className="flow-svg-wrap">
+      <div className="flow-round-pair" aria-label={flowCaption}>
+        <span className="flow-round-pair-caption">{flowCaption}</span>
+      </div>
       <svg
         className="flow-svg"
         viewBox={`0 0 ${W} ${H}`}
@@ -112,7 +150,13 @@ function FlowDiagram({ model }: { model: RoundTransitionModel }) {
               >
                 {s.id.length > 22 ? `${s.id.slice(0, 20)}…` : s.id}
               </text>
-              <text x={xL - 12} y={box.mid} textAnchor="end" dominantBaseline="middle" className="flow-node-votes">
+              <text
+                x={xL - 12}
+                y={box.mid}
+                textAnchor="end"
+                dominantBaseline="middle"
+                className="flow-node-votes"
+              >
                 {formatVotes(s.w)}
               </text>
             </g>
@@ -143,146 +187,226 @@ function FlowDiagram({ model }: { model: RoundTransitionModel }) {
               >
                 {t.id.length > 22 ? `${t.id.slice(0, 20)}…` : t.id}
               </text>
-              <text x={xR + 20} y={box.mid} dominantBaseline="middle" className="flow-node-votes">
+              <text
+                x={xR + 20}
+                y={box.mid}
+                dominantBaseline="middle"
+                className="flow-node-votes"
+              >
                 {formatVotes(t.w)}
               </text>
             </g>
           );
         })}
-
       </svg>
     </div>
   );
 }
 
 export function TransfersPanel({ rounds }: { rounds: Round[] }) {
-  const transitions = useMemo(() => buildConsecutiveTransitions(rounds), [rounds]);
+  const transitions = useMemo(
+    () => buildConsecutiveTransitions(rounds),
+    [rounds],
+  );
   const [idx, setIdx] = useState(0);
 
-  useEffect(() => {
-    setIdx((j) => {
-      if (transitions.length === 0) return 0;
-      return Math.min(j, transitions.length - 1);
-    });
-  }, [transitions]);
+  const safeIdx =
+    transitions.length === 0
+      ? 0
+      : Math.min(Math.max(0, idx), transitions.length - 1);
 
-  const model: RoundTransitionModel | undefined = transitions[idx];
+  const go = useCallback(
+    (delta: number) => {
+      setIdx((i) => {
+        if (transitions.length === 0) return 0;
+        return Math.min(Math.max(0, i + delta), transitions.length - 1);
+      });
+    },
+    [transitions],
+  );
+
+  const onKeyNav = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        go(-1);
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        go(1);
+      }
+    },
+    [go],
+  );
 
   if (transitions.length === 0) {
     return (
       <section className="section transfers-section">
         <h2>Transfery między rundami</h2>
         <p className="lead">
-          Do wizualizacji przepływów potrzebne są co najmniej <strong>dwie</strong> kolejne rundy w
-          pliku. Wgraj pełniejszy raport lub uzupełnij brakujące sekcje „Runda n”.
+          Do wizualizacji przepływów potrzebne są co najmniej{" "}
+          <strong>dwie</strong> kolejne rundy w pliku. Wgraj pełniejszy raport
+          lub uzupełnij brakujące sekcje „Runda n”.
         </p>
       </section>
     );
   }
 
+  const n = transitions.length;
+  const model = transitions[safeIdx]!;
+  const canPrev = safeIdx > 0;
+  const canNext = safeIdx < n - 1;
+
   return (
     <section className="section transfers-section">
       <h2>Transfery między rundami</h2>
 
-      <div className="transfers-disclaimer" role="note">
-        <strong>Eksport nie zawiera oficjalnego dziennika transferów</strong> (kto ile przekazał
-        komu według kolejnych preferencji). Poniżej: <em>dokładna</em> zmiana liczby głosów w
-        tabeli (runda A → B) oraz <em>szacunkowy</em> diagram przepływu zbudowany tak, by
-        zachować bilans: każda „utrata” u źródeł jest rozdzielana między odbiorców
-        proporcjonalnie do ich zysków (model uproszczony, tylko do intuicji).
-      </div>
+      <p className="lead ballots-tab-lead">
+        Para kolejnych rund z raportu. Strzałki{" "}
+        <kbd className="kbd-hint">←</kbd> <kbd className="kbd-hint">→</kbd>{" "}
+        zmieniają przejście, gdy fokus jest na ramce poniżej (kliknij w tabelę
+        albo diagram).
+      </p>
 
-      <div className="transfers-toolbar">
-        <label className="transfers-label" htmlFor="pair-select">
-          Para rund (kolejność w pliku)
-        </label>
-        <select
-          id="pair-select"
-          className="transfers-select"
-          value={idx}
-          onChange={(e) => setIdx(Number.parseInt(e.target.value, 10))}
+      <div className="ballot-nav" role="group" aria-label="Wybór pary rund">
+        <button
+          type="button"
+          className="btn btn-ghost ballot-nav-btn"
+          disabled={!canPrev}
+          onClick={() => go(-1)}
+          aria-label="Poprzednie przejście między rundami"
         >
-          {transitions.map((t, i) => (
-            <option key={`${t.fromRound}-${t.toRound}`} value={i}>
-              Runda {t.fromRound} → Runda {t.toRound}
-            </option>
-          ))}
-        </select>
+          ← Poprzednia
+        </button>
+        <div className="ballot-nav-center">
+          <label htmlFor="pair-select" className="ballot-nav-label">
+            Transfer między rundami
+          </label>
+          <select
+            id="pair-select"
+            className="ballot-nav-select"
+            value={safeIdx}
+            onChange={(e) => setIdx(Number.parseInt(e.target.value, 10))}
+          >
+            {transitions.map((t, i) => (
+              <option key={`${t.fromRound}-${t.toRound}`} value={i}>
+                Runda {t.fromRound} → Runda {t.toRound}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          className="btn btn-ghost ballot-nav-btn"
+          disabled={!canNext}
+          onClick={() => go(1)}
+          aria-label="Następne przejście między rundami"
+        >
+          Następna →
+        </button>
       </div>
 
-      {model && (
-        <>
-          <p className="transfers-meta">
-            Suma „wyjść”: {formatVotes(model.totalOut)} · Suma „wejść”: {formatVotes(model.totalIn)}
-            {model.omittedLinkMass > 0.02 && (
-              <>
-                {' '}
-                · Pominięto cienkie połączenia łącznie ~{formatVotes(model.omittedLinkMass)} (dla
-                czytelności)
-              </>
-            )}
-          </p>
+      <p className="ballot-nav-summary" aria-live="polite">
+        Krok <strong>{safeIdx + 1}</strong> z <strong>{n}</strong>
+        {" — "}
+        <span className="transfers-summary-pair">
+          <strong>Runda {model.fromRound}</strong>
+          <span className="transfers-summary-arrow" aria-hidden="true">
+            →
+          </span>
+          <strong>Runda {model.toRound}</strong>
+        </span>
+      </p>
 
-          <h3 className="transfers-subh">Zmiana głosów w tabeli</h3>
-          <div className="table-scroll">
-            <table className="delta-table">
-              <thead>
-                <tr>
-                  <th>Kandydat</th>
-                  <th className="num">Runda {model.fromRound}</th>
-                  <th className="num">Runda {model.toRound}</th>
-                  <th className="num">Δ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...model.deltas]
-                  .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
-                  .map((d) => (
-                    <tr key={d.candidate}>
-                      <td>{d.candidate}</td>
-                      <td className="num">{d.prevVotes == null ? '—' : formatVotes(d.prevVotes)}</td>
-                      <td className="num">{d.nextVotes == null ? '—' : formatVotes(d.nextVotes)}</td>
-                      <td className={`num delta ${d.delta > 0 ? 'pos' : d.delta < 0 ? 'neg' : ''}`}>
-                        {d.delta > 0 ? '+' : ''}
-                        {formatVotes(d.delta)}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+      <div
+        className="ballot-keyboard-scope"
+        tabIndex={0}
+        onKeyDown={onKeyNav}
+        aria-label="Szczegóły transferu — strzałki zmieniają parę rund"
+      >
+        <p className="transfers-meta">
+          Suma „wyjść”: {formatVotes(model.totalOut)} · Suma „wejść”:{" "}
+          {formatVotes(model.totalIn)}
+          {model.omittedLinkMass > 0.02 && (
+            <>
+              {" "}
+              · Pominięto cienkie połączenia łącznie ~
+              {formatVotes(model.omittedLinkMass)} (dla czytelności)
+            </>
+          )}
+        </p>
 
-          <h3 className="transfers-subh">Szacunkowy diagram przepływu (proporcje)</h3>
-          <p className="lead transfers-lead">
-            Lewa kolumna: skąd „odchodzą” głosy (spadek lub zniknięcie z tabeli). Prawa: gdzie
-            przybywają. Grubość krzywej odpowiada <em>modelowi</em>, nie oficjalnym transferom z
-            kart.
-          </p>
-          <FlowDiagram model={model} />
+        <h3 className="transfers-subh">Diagram przepływu</h3>
+        <p className="lead transfers-lead">
+          Lewa kolumna: skąd „odchodzą” głosy (wybór lub eliminacja). Prawa:
+          gdzie przybywają.
+        </p>
+        <FlowDiagram
+          model={model}
+          flowCaption={flowDiagramCaption(
+            rounds.find((r) => r.number === model.fromRound),
+            model.fromRound,
+            model.toRound,
+          )}
+        />
 
-          <h3 className="transfers-subh">Największe szacowane połączenia</h3>
-          <div className="table-scroll">
-            <table className="delta-table links-table">
-              <thead>
-                <tr>
-                  <th>Z</th>
-                  <th>Do</th>
-                  <th className="num">Szac. waga</th>
-                </tr>
-              </thead>
-              <tbody>
-                {model.links.slice(0, 40).map((l, i) => (
-                  <tr key={`${l.source}-${l.target}-${i}`}>
-                    <td>{l.source}</td>
-                    <td>{l.target}</td>
-                    <td className="num">{formatVotes(l.value)}</td>
+        <h3 className="transfers-subh">Zmiana głosów w tabeli</h3>
+        <div className="table-scroll">
+          <table className="delta-table">
+            <thead>
+              <tr>
+                <th>Kandydat</th>
+                <th className="num">Runda {model.fromRound}</th>
+                <th className="num">Runda {model.toRound}</th>
+                <th className="num">Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...model.deltas]
+                .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+                .map((d) => (
+                  <tr key={d.candidate}>
+                    <td>{d.candidate}</td>
+                    <td className="num">
+                      {d.prevVotes == null ? "—" : formatVotes(d.prevVotes)}
+                    </td>
+                    <td className="num">
+                      {d.nextVotes == null ? "—" : formatVotes(d.nextVotes)}
+                    </td>
+                    <td
+                      className={`num delta ${d.delta > 0 ? "pos" : d.delta < 0 ? "neg" : ""}`}
+                    >
+                      {d.delta > 0 ? "+" : ""}
+                      {formatVotes(d.delta)}
+                    </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+            </tbody>
+          </table>
+        </div>
+
+        <h3 className="transfers-subh">Największe transfery</h3>
+        <div className="table-scroll">
+          <table className="delta-table links-table">
+            <thead>
+              <tr>
+                <th>Z</th>
+                <th>Do</th>
+                <th className="num">Szac. waga</th>
+              </tr>
+            </thead>
+            <tbody>
+              {model.links.slice(0, 40).map((l, i) => (
+                <tr key={`${l.source}-${l.target}-${i}`}>
+                  <td>{l.source}</td>
+                  <td>{l.target}</td>
+                  <td className="num">{formatVotes(l.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   );
 }

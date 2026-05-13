@@ -104,9 +104,6 @@ function ElectionStatsBanner({ data }: { data: ParsedStvReport }) {
       <p className="election-stats-formula">
         Wzór: kwota = V / (S + 1), gdzie S = liczba miejsc, V = liczba ważnych
         głosów przyjęta według zasad powyżej (próg ułamkowy jak w typowym STV).
-        Przy głosach wyłącznie całkowitych często stosuje się zamiast tego
-        najmniejszą liczbę całkowitą ściśle większą od ułamka V/(S+1), czyli
-        ⌊V/(S+1)⌋ + 1.
       </p>
       <p className="election-stats-note">{s.votesBaseExplanation}</p>
     </section>
@@ -293,8 +290,7 @@ export default function App() {
           <p className="upload-title">Raport STV (tekst / CSV z eksportu)</p>
           <p className="upload-hint">
             Przeciągnij plik tutaj albo wybierz z dysku. Oczekiwany układ jak w
-            eksporcie ZEUS: metadane, „Wybrano, Grupy”, sekcje „Runda n”,
-            opcjonalnie „Karty do głosowania”.
+            eksporcie ZEUS”.
           </p>
           <div className="upload-actions">
             <button
@@ -330,8 +326,8 @@ export default function App() {
             <p className="eyebrow">Raport STV (ZEUS)</p>
             <h1>{data.meta["Nazwa wyborów"] ?? "Wybory"}</h1>
             <p className="hero-sub">
-              Przejrzysty podział: informacje o głosowaniu, lista wybranych oraz
-              przebieg rund z liczbą głosów (w tym ułamkowych transferów).
+              Informacje o głosowaniu, lista wybranych oraz przebieg rund z
+              liczbą głosów (w tym ułamkowych transferów).
             </p>
           </header>
 
@@ -375,7 +371,7 @@ export default function App() {
               onClick={() => setMainTab("candidates")}
               aria-label="Statystyki kandydatów z kart i pierwszej rundy"
             >
-              Kandydaci
+              Kandydatki
             </button>
           </nav>
 
@@ -387,10 +383,10 @@ export default function App() {
               </section>
 
               <section className="section elected">
-                <h2>Wybrani ({data.elected.length})</h2>
+                <h2>Wybrane ({data.elected.length})</h2>
                 <p className="lead">
                   Osoby, które znalazły się w sekcji wyboru w raporcie — z
-                  oznaczeniem grupy (M / K / X).
+                  oznaczeniem parytetu (M / K / X).
                 </p>
                 <ElectedGrid elected={data.elected} />
               </section>
@@ -423,9 +419,7 @@ export default function App() {
 
           {mainTab === "transfers" && <TransfersPanel rounds={data.rounds} />}
 
-          {mainTab === "ballots" && (
-            <BallotsPanel papers={data.ballotPapers} />
-          )}
+          {mainTab === "ballots" && <BallotsPanel papers={data.ballotPapers} />}
 
           {mainTab === "candidates" && (
             <CandidateStatsPanel
